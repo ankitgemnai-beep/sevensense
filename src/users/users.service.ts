@@ -2,13 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from './schemas/user.schema';
-import { FileStorageService } from './file-storage.service';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectModel(User.name) private userModel: Model<User>,
-    private fileStorageService: FileStorageService
+    @InjectModel(User.name) private userModel: Model<User>
   ) {}
 
   async findByEmail(email: string): Promise<any> {
@@ -16,14 +14,7 @@ export class UsersService {
   }
 
   async findById(id: string): Promise<any> {
-    const user = await this.userModel.findById(id).select('-password').lean().exec();
-    if (!user) return null;
-    
-    const fileData = await this.fileStorageService.readUserProfile(id);
-    if (fileData) {
-      return { ...user, ...fileData };
-    }
-    return user;
+    return this.userModel.findById(id).select('-password').lean().exec();
   }
 
   async create(userData: any): Promise<any> {
@@ -31,19 +22,10 @@ export class UsersService {
       userData.username = userData.email.split('@')[0] + Math.floor(Math.random() * 10000);
     }
     const createdUser = new this.userModel(userData);
-    const savedUser = await createdUser.save();
-    
-    await this.fileStorageService.writeUserProfile(savedUser._id.toString(), {
-      email: savedUser.email,
-      displayName: savedUser.displayName,
-      profileCreated: new Date().toISOString()
-    });
-    
-    return savedUser;
+    return createdUser.save();
   }
 
   async updateProfile(id: string, updateData: any): Promise<any> {
-    await this.fileStorageService.writeUserProfile(id, updateData);
     return this.userModel.findByIdAndUpdate(id, updateData, { new: true }).select('-password').lean().exec();
   }
 
